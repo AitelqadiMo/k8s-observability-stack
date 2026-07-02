@@ -1,0 +1,12 @@
+# Helm
+charts/
+*.tgz
+
+# Local kube context dumps
+kubeconfig
+*.kubeconfig
+
+# Editor
+.vscode/
+.idea/
+.DS_Store
