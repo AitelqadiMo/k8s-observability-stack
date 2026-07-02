@@ -1,0 +1,40 @@
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: infra-alerts
+  labels:
+    app.kubernetes.io/part-of: k8s-observability-stack
+    role: infra-alerts
+spec:
+  groups:
+    - name: node-and-pod-health
+      rules:
+        - alert: NodeMemoryPressure
+          expr: |
+            (1 - (node_memory_MemAvailable_bytes / node_memory_MemTotal_bytes)) > 0.90
+          for: 10m
+          labels:
+            severity: warning
+          annotations:
+            summary: "High memory usage on {{ $labels.instance }}"
+            description: "Node {{ $labels.instance }} has used over 90% of memory for 10 minutes."
+
+        - alert: PodCrashLooping
+          expr: |
+            increase(kube_pod_container_status_restarts_total[15m]) > 3
+          for: 5m
+          labels:
+            severity: warning
+          annotations:
+            summary: "Pod {{ $labels.namespace }}/{{ $labels.pod }} is crash-looping"
+            description: "Container has restarted more than 3 times in 15 minutes."
+
+        - alert: PersistentVolumeFillingUp
+          expr: |
+            (kubelet_volume_stats_available_bytes / kubelet_volume_stats_capacity_bytes) < 0.10
+          for: 10m
+          labels:
+            severity: critical
+          annotations:
+            summary: "PV {{ $labels.persistentvolumeclaim }} almost full"
+            description: "Less than 10% space remains on the volume."
