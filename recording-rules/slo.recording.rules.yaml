@@ -1,0 +1,38 @@
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: slo-recording-rules
+  labels:
+    app.kubernetes.io/part-of: k8s-observability-stack
+    role: slo-recording
+spec:
+  groups:
+    # Precompute the error ratio over several windows so the burn-rate alerts
+    # stay cheap to evaluate. Assumes an app exposing standard HTTP metrics
+    # (http_requests_total with a "code" label). Adjust the selectors to your
+    # own instrumentation.
+    - name: slo-error-ratios
+      rules:
+        - record: job:slo_errors_per_request:ratio_rate5m
+          expr: |
+            sum by (job) (rate(http_requests_total{code=~"5.."}[5m]))
+            /
+            sum by (job) (rate(http_requests_total[5m]))
+
+        - record: job:slo_errors_per_request:ratio_rate30m
+          expr: |
+            sum by (job) (rate(http_requests_total{code=~"5.."}[30m]))
+            /
+            sum by (job) (rate(http_requests_total[30m]))
+
+        - record: job:slo_errors_per_request:ratio_rate1h
+          expr: |
+            sum by (job) (rate(http_requests_total{code=~"5.."}[1h]))
+            /
+            sum by (job) (rate(http_requests_total[1h]))
+
+        - record: job:slo_errors_per_request:ratio_rate6h
+          expr: |
+            sum by (job) (rate(http_requests_total{code=~"5.."}[6h]))
+            /
+            sum by (job) (rate(http_requests_total[6h]))
