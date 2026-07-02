@@ -1,0 +1,52 @@
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: slo-burn-rate
+  labels:
+    app.kubernetes.io/part-of: k8s-observability-stack
+    role: slo-alerts
+spec:
+  groups:
+    # Multi-window, multi-burn-rate alerts for a 99.9% availability SLO.
+    # Fast burn pages on a sustained, severe error budget drain; slow burn
+    # opens a ticket for a slower leak. Thresholds follow the Google SRE
+    # workbook (error budget = 0.1%).
+    - name: slo-availability-burn-rate
+      rules:
+        - alert: ErrorBudgetBurnFast
+          # 14.4x burn over 1h and 5m windows => ~2% of budget in 1h.
+          expr: |
+            (
+              job:slo_errors_per_request:ratio_rate5m > (14.4 * 0.001)
+              and
+              job:slo_errors_per_request:ratio_rate1h > (14.4 * 0.001)
+            )
+          for: 2m
+          labels:
+            severity: critical
+            slo: availability
+          annotations:
+            summary: "Fast error-budget burn on {{ $labels.job }}"
+            description: >-
+              {{ $labels.job }} is burning its availability error budget at
+              more than 14x. At this rate the 30-day budget is exhausted in
+              about two days. Page and investigate.
+
+        - alert: ErrorBudgetBurnSlow
+          # 6x burn over 6h and 30m windows => slower leak, ticket not page.
+          expr: |
+            (
+              job:slo_errors_per_request:ratio_rate30m > (6 * 0.001)
+              and
+              job:slo_errors_per_request:ratio_rate6h > (6 * 0.001)
+            )
+          for: 15m
+          labels:
+            severity: warning
+            slo: availability
+          annotations:
+            summary: "Slow error-budget burn on {{ $labels.job }}"
+            description: >-
+              {{ $labels.job }} is burning its availability error budget at
+              about 6x over multiple hours. Open a ticket and address before
+              it escalates.
